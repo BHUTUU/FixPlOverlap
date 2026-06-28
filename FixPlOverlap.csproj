@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+	<PlatformTarget>x64</PlatformTarget>
+	<Platforms>x64</Platforms>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<Nullable>disable</Nullable>
+	<LangVersion>latest</LangVersion>
+	<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+	<GenerateDependencyFile>false</GenerateDependencyFile>
+	<GenerateRuntimeConfigurationFiles>false</GenerateRuntimeConfigurationFiles>
+	<CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+	<NoWarn>MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="accoremgd">
+      <HintPath>C:\Program Files\Autodesk\AutoCAD 2025\accoremgd.dll</HintPath>
+	  <Private>false</Private>
+    </Reference>
+    <Reference Include="Acdbmgd">
+      <HintPath>C:\Program Files\Autodesk\AutoCAD 2025\acdbmgd.dll</HintPath>
+	  <Private>false</Private>
+	</Reference>
+    <Reference Include="acdbmgdbrep">
+      <HintPath>C:\Program Files\Autodesk\AutoCAD 2025\acdbmgdbrep.dll</HintPath>
+	  <Private>false</Private>
+    </Reference>
+    <Reference Include="Acmgd">
+      <HintPath>C:\Program Files\Autodesk\AutoCAD 2025\acmgd.dll</HintPath>
+      <Private>false</Private>
+	</Reference>
+  </ItemGroup>
+
+</Project>
