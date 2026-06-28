@@ -3,7 +3,6 @@ using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.BoundaryRepresentation;
 
 namespace FixPlOverlap
 {
@@ -111,9 +110,116 @@ namespace FixPlOverlap
                 btr.AppendEntity(reg1);
                 tr.AddNewlyCreatedDBObject(reg1, true);
                 reg2.Dispose();
+                DBObjectCollection dbObjectCollection = PolylineFromRegion(reg1);
+
+                foreach(Entity polyUnit in dbObjectCollection)
+                {
+                    btr.AppendEntity(polyUnit);
+                    tr.AddNewlyCreatedDBObject(polyUnit, true);
+                }
                 reg1.Erase();
+
                 tr.Commit();
             }
+        }
+        public static DBObjectCollection PolylineFromRegion(Region region)
+        {
+            DBObjectCollection resultant = new DBObjectCollection();
+            DBObjectCollection curves = new DBObjectCollection();
+            region.Explode(curves);
+            Plane pl = new Plane(new Point3d(0, 0, 0), region.Normal);
+            using (pl)
+            {
+                bool completed = false;
+                while (!completed && curves.Count > 0)
+                {
+                    int curveCount = 0, nonCurveCount = 0, firstCurveIndex = -1;
+                    for (int i = 0; i < curves.Count; i++)
+                    {
+                        Curve tempCurve = curves[i] as Curve;
+                        if (tempCurve == null) nonCurveCount++;
+                        else
+                        {
+                            if (tempCurve.Closed)
+                            {
+                                resultant.Add(tempCurve);
+                                curves.Remove(tempCurve);
+                                i--;
+                            }
+                            else
+                            {
+                                curveCount++;
+                                if (firstCurveIndex == -1)
+                                    firstCurveIndex = i;
+                            }
+                        }
+                    }
+                    if (firstCurveIndex >= 0)
+                    {
+                        Curve firstCurve = (Curve)curves[firstCurveIndex];
+                        Polyline constructedPline = new Polyline();
+                        constructedPline.SetPropertiesFrom(region);
+                        constructedPline.AddVertexAt(constructedPline.NumberOfVertices, firstCurve.StartPoint.Convert2d(pl), BulgeFromCurve(firstCurve, false), 0, 0);
+                        constructedPline.AddVertexAt(constructedPline.NumberOfVertices, firstCurve.EndPoint.Convert2d(pl), 0, 0, 0);
+                        curves.Remove(firstCurve);
+                        Point3d nextPoint = firstCurve.EndPoint;
+                        firstCurve.Dispose();
+                        int previousCount = curves.Count + 1;
+                        while (curves.Count > nonCurveCount && curves.Count < previousCount)
+                        {
+                            previousCount = curves.Count;
+                            foreach (DBObject obj in curves)
+                            {
+                                Curve currentCurve = obj as Curve;
+                                if (currentCurve != null)
+                                {
+                                    if (currentCurve.StartPoint == nextPoint || currentCurve.EndPoint == nextPoint)
+                                    {
+                                        double bulge = BulgeFromCurve(currentCurve, currentCurve.EndPoint == nextPoint);
+                                        if (bulge != 0.0) constructedPline.SetBulgeAt(constructedPline.NumberOfVertices - 1, bulge);
+                                        if (currentCurve.StartPoint == nextPoint) nextPoint = currentCurve.EndPoint; else nextPoint = currentCurve.StartPoint;
+                                        constructedPline.AddVertexAt(constructedPline.NumberOfVertices, nextPoint.Convert2d(pl), 0, 0, 0);
+                                        curves.Remove(currentCurve);
+                                        currentCurve.Dispose();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        constructedPline.TransformBy(Matrix3d.PlaneToWorld(pl));
+                        resultant.Add(constructedPline);
+                        if (curves.Count == nonCurveCount) completed = true;
+                    }
+                    if (nonCurveCount > 0 && curves.Count > 0)
+                    {
+                        foreach (DBObject obj in curves)
+                        {
+                            Region subRegion = obj as Region;
+                            if (subRegion != null)
+                            {
+                                DBObjectCollection sunReasonToPolyline = PolylineFromRegion(subRegion);
+                                foreach (DBObject o in sunReasonToPolyline) resultant.Add(o);
+                                curves.Remove(subRegion);
+                                subRegion.Dispose();
+                            }
+                        }
+                    }
+                    if (curves.Count == 0) completed = true;
+                }
+            }
+            return resultant;
+        }
+        public static double BulgeFromCurve(Curve cv, bool clockwise)
+        {
+            double bulge = 0.0;
+            Arc a = cv as Arc;
+            if (a != null)
+            {
+                double newStart;
+                if (a.StartAngle > a.EndAngle) newStart = a.StartAngle - 2 * Math.PI; else newStart = a.StartAngle; bulge = Math.Tan((a.EndAngle - newStart) / 4);
+                if (clockwise) bulge = -bulge;
+            }
+            return bulge;
         }
     }
 }
